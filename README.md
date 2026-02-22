@@ -1,85 +1,79 @@
 # Envertech Local Integration for Home Assistant
 
-A custom integration for Home Assistant that enables **local monitoring** of Envertech microinverters, with **no reliance on cloud services**.
+A custom, **local-only** integration for Envertech microinverters – no cloud required.
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Kaiserdragon2&repository=Envertech_local&category=integration)
+[![HACS Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
 
----
+[![GitHub Release](https://img.shields.io/github/v/release/jimmybonesde/Envertech_local?style=for-the-badge&logo=github&color=green)](https://github.com/jimmybonesde/Envertech_local/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/jimmybonesde/Envertech_local?style=for-the-badge&logo=github&color=yellow)](https://github.com/jimmybonesde/Envertech_local/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-## 🌞 Description
+**This is a maintained fork** of the original integration by [Kaiserdragon2](https://github.com/Kaiserdragon2/Envertech_local).
 
-This integration allows you to connect your **Envertech solar microinverters** to Home Assistant for **local monitoring** of:
+### Key Improvements in this Fork
 
-- Power generation  
-- Grid Voltage  
-- Panel Voltage
-- Temperature
-- Total Energy
-- Frequency
+- Added **daily, monthly, and yearly production** sensors (`energy_daily`, `energy_monthly`, `energy_yearly`)
+- Removed problematic `RestoreEntity` logic → much more stable initialization (no more missing P1 sensors)
+- Improved availability checks for panel sensors
+- Cleaned up code structure and added better logging
+- Full English & German translations
 
-All data is collected **directly from your inverters**, without using Envertech’s cloud.
+### Features
 
----
+- 🔌 **Fully local** communication with Envertech inverters (TCP)
+- ☁️ **Zero cloud dependency**
+- ⚡ Real-time monitoring of power, voltage, temperature, frequency, etc.
+- 📈 Daily / monthly / yearly energy production (perfect for HA Energy Dashboard)
+- 🛠️ Reliable even after restarts or reloads
 
-## ✅ Features
+### Installation
 
-- 🔌 **Local communication** with Envertech inverters  
-- ☁️ **No cloud dependency**  
-- 📊 Real-time metrics tracking in Home Assistant  
+#### Via HACS (recommended)
 
----
+1. Go to **HACS → Integrations** → click the three dots (top right) → **Custom repositories**
+2. Add this URL:  
+   `https://github.com/jimmybonesde/Envertech_local`
+3. Category: **Integration**
+4. Click **Add** → search for **Envertech Local (Fork)** → Install
+5. Restart Home Assistant
+6. Go to **Settings → Devices & Services → + Add Integration** → search for “Envertech”
 
-## 📦 Installation
+#### Manual Installation
 
-### 🧰 Via HACS (Recommended)
+1. Download or clone this repository
+2. Copy the folder `custom_components/envertech_local` into your Home Assistant `config` directory
+3. Restart Home Assistant
+4. Add the integration via the UI (as above)
 
-1. In Home Assistant, go to **HACS → Integrations** → three dots menu → **Custom repositories**.
-2. Add this repository:  
-   `https://github.com/Kaiserdragon2/Envertech_local`
-3. Search for **Envertech Local** in HACS and install.
-4. **Restart** Home Assistant.
-5. Go to **Settings → Devices & Services → + Add Integration**, search for **"Envertech"**.
-6. Follow the setup flow.
+### Configuration
 
-### 🛠️ Manual Installation
+1. Go to **Settings → Devices & Services → + Add Integration**
+2. Search for “Envertech Local”
+3. Enter the **IP address** and **TCP port** of your inverter (default port is usually 8899)
+4. Submit → entities appear automatically
 
-1. Clone or download this repository.
-2. Copy the `envertech_local` folder into your Home Assistant config directory at:  
-   `custom_components/envertech_local/`
-3. **Restart** Home Assistant.
-4. Proceed with configuration as above.
+### Created Entities (Examples)
 
----
+- `sensor.envertech_[sn]_p1_input_voltage` → Panel 1 input voltage
+- `sensor.envertech_[sn]_total_energy` → Lifetime total energy
+- `sensor.envertech_[sn]_energy_daily` → **Production today** (since midnight)
+- `sensor.envertech_[sn]_energy_monthly` → **Production this month**
+- `sensor.envertech_[sn]_energy_yearly` → **Production this year**
 
-## ⚙️ Configuration
+### Screenshots
 
-> 🔧 *Configuration details will be added soon.*
+*(Coming soon: Energy dashboard example, panel overview, configuration flow)*
 
----
+### License & Credits
 
-## 📡 Supported Devices
+Original work Copyright (c) [Year] Kaiserdragon2  
+Fork & enhancements Copyright (c) 2026 JimmyBonesDE (@jimmybonesde)
 
-> 📋 *List of compatible Envertech inverter models will be added.*
+Licensed under the **MIT License** – see [LICENSE](LICENSE) for details.
 
----
+### Contributing
 
-## 🤝 Contributing
+Bug reports, feature requests, and pull requests are very welcome!  
+Please open an [issue](https://github.com/jimmybonesde/Envertech_local/issues) first.
 
-Contributions are welcome!  
-Please feel free to [open an issue](https://github.com/Kaiserdragon2/Envertech_local/issues) or submit a Pull Request.
-
----
-
-## 📄 License
-
-This project is licensed under the terms of the [MIT License](https://github.com/Kaiserdragon2/Envertech_local/blob/main/LICENSE).
-
----
-
-## ⚠️ Disclaimer
-
-This is a **third-party integration** and is **not officially supported** by Envertech.
-
----
-
-*Home Assistant integration for Envertech microinverter*
+Made with ❤️ in Karlsruhe, Germany
