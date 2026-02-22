@@ -2,7 +2,6 @@
 
 **Local-only** monitoring for Envertech microinverters – **no cloud, no internet** needed after setup! 🚀
 
-[![HACS Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
 [![GitHub Release](https://img.shields.io/github/v/release/jimmybonesde/Envertech_local?style=for-the-badge&logo=github&color=green)](https://github.com/jimmybonesde/Envertech_local/releases)
 [![GitHub Stars](https://img.shields.io/github/stars/jimmybonesde/Envertech_local?style=for-the-badge&logo=github&color=yellow)](https://github.com/jimmybonesde/Envertech_local/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
@@ -27,6 +26,8 @@ No cloud calls, no account, no data leaves your network! 🔒
 ### 🚀 Installation
 
 #### Via HACS (recommended & fastest)
+
+[![HACS Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
 
 1. Go to **HACS → Integrations** → click the three dots (top right) → **Custom repositories**  
 2. Add this URL:  
