@@ -1,0 +1,19 @@
+{
+  "entity": {
+    "sensor": {
+      "input_voltage": { "name": "Eingangsspannung" },
+      "power": { "name": "Leistung" },
+      "energy": { "name": "Energie" },
+      "temperature": { "name": "Temperatur" },
+      "grid_voltage": { "name": "Netzspannung" },
+      "frequency": { "name": "Frequenz" },
+      "module_serial": { "name": "Modul-Seriennummer" },
+      "firmware_version": { "name": "Firmware-Version" },
+      "total_energy": { "name": "Gesamtenergie" },
+      "total_power": { "name": "Gesamtleistung" },
+      "energy_daily":   { "name": "Tagesenergie" },
+      "energy_monthly": { "name": "Monatsenergie" },
+      "energy_yearly":  { "name": "Jahresenergie" }
+    }
+  }
+}
