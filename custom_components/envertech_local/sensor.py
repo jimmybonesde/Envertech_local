@@ -158,11 +158,14 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
 
                     parsed_data = update
 
-                    # Panels dynamisch zählen
-                    panel_ids = [
-                        key.split("_")[0] for key in parsed_data.keys() if "_" in key and key[0].isdigit()
-                    ]
-                    self.number_of_panels = len(set(panel_ids))
+                    # Panels dynamisch zählen, flexibel für 0_, 1_, P1_, P2_ etc.
+                    panel_ids = set()
+                    for key in parsed_data.keys():
+                        if "_" in key:
+                            prefix = key.split("_")[0]
+                            if prefix.isdigit() or prefix.upper().startswith("P"):
+                                panel_ids.add(prefix)
+                    self.number_of_panels = len(panel_ids)
 
                     # Alle Werte speichern
                     for key, val in parsed_data.items():
@@ -201,13 +204,18 @@ class InverterSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         if self._module_index is not None:
-            return self.coordinator.data.get(f"{self._module_index}_{self.entity_description.key}")
+            # Versuche zuerst mit "0_key", "1_key" etc., fallback auf "P1_key"
+            key_numeric = f"{self._module_index}_{self.entity_description.key}"
+            key_p = f"P{self._module_index + 1}_{self.entity_description.key}"
+            return self.coordinator.data.get(key_numeric, self.coordinator.data.get(key_p))
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
     def extra_state_attributes(self):
         if self._module_index is not None:
-            return {"serial_number": self.coordinator.data.get(f"{self._module_index}_mi_sn")}
+            key_numeric = f"{self._module_index}_mi_sn"
+            key_p = f"P{self._module_index + 1}_mi_sn"
+            return {"serial_number": self.coordinator.data.get(key_numeric, self.coordinator.data.get(key_p))}
         return {}
 
     @property
@@ -266,15 +274,13 @@ class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity)
             return None
 
         now = dt_util.now()
-
         if self.entity_description.key == "energy_daily":
             current_marker = now.date().isoformat()
         elif self.entity_description.key == "energy_monthly":
             current_marker = now.strftime("%Y-%m")
-        else:  # yearly
+        else:
             current_marker = str(now.year)
 
-        # Periodenwechsel erkennen
         if self._period_marker != current_marker:
             _LOGGER.info(
                 "Neuer Zeitraum für %s: %s → %s",
@@ -286,13 +292,11 @@ class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity)
             self._period_marker = current_marker
             self._last_reset = now
 
-        # Erste Initialisierung
         if self._offset is None:
             self._offset = current_total
             self._last_reset = now
 
-        value = max(0.0, current_total - self._offset)
-        return round(value, 2)
+        return round(max(0.0, current_total - self._offset), 2)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -335,7 +339,11 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     # Per-Panel-Sensoren
     for i in range(coordinator.number_of_panels):
         for description in SENSOR_TYPES:
-            entities.append(InverterSensor(coordinator, description, module_index=i))
+            # Prüfen, ob Key existiert, entweder "0_key" oder "P1_key"
+            key_numeric = f"{i}_{description.key}"
+            key_p = f"P{i + 1}_{description.key}"
+            if key_numeric in coordinator.data or key_p in coordinator.data:
+                entities.append(InverterSensor(coordinator, description, module_index=i))
 
     # Globale Sensoren
     for description in SENSOR_TYPES_SINGLE:
