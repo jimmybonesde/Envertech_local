@@ -1,8 +1,6 @@
 import logging
 import asyncio
-
 from .const import DOMAIN, MANUFACTURER, DEVICE_NAME
-
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
@@ -22,8 +20,14 @@ from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
+from datetime import datetime
 
+_LOGGER = logging.getLogger(__name__)
+
+# Per-module sensors
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="input_voltage",
@@ -80,6 +84,7 @@ SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
+# Global sensors including period energy
 SENSOR_TYPES_SINGLE: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="firmware_version",
@@ -102,14 +107,37 @@ SENSOR_TYPES_SINGLE: tuple[SensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.POWER,
         suggested_display_precision=2,
     ),
+    SensorEntityDescription(
+        key="energy_daily",
+        translation_key="energy_daily",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="energy_monthly",
+        translation_key="energy_monthly",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="energy_yearly",
+        translation_key="energy_yearly",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_display_precision=2,
+    ),
 )
 
-_LOGGER = logging.getLogger(__name__)
 
 class InverterSocketCoordinator(DataUpdateCoordinator):
     """Coordinator using envertech_local.stream_inverter_data()."""
 
-    def __init__(self, hass, ip: str, port: int, sn: str):
+    def __init__(self, hass: HomeAssistant, ip: str, port: int, sn: str):
         super().__init__(
             hass,
             _LOGGER,
@@ -118,38 +146,29 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
         self.ip = ip
         self.port = port
         self.sn = sn
-
         self.data = {}
         self.number_of_panels = 0
         self.data_ready = False
         self.connected = False
         self.running = True
-
-        # Start streaming
         asyncio.create_task(self._stream_loop())
 
     async def _stream_loop(self):
-        """Consume inverter data from stream_inverter_data()."""
-
         from envertech_local import stream_inverter_data
-
         device = {
             "ip": self.ip,
             "port": self.port,
             "serial_number": self.sn,
         }
-
         while self.running:
             try:
                 async for update in stream_inverter_data(device, interval=5):
-
                     if isinstance(update, dict) and "error" in update:
                         self.connected = False
                         continue
 
                     parsed_data = update
 
-                    # Count panels
                     panel_ids = [
                         key.split("_")[0]
                         for key in parsed_data.keys()
@@ -157,7 +176,6 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
                     ]
                     self.number_of_panels = len(set(panel_ids))
 
-                    # Store all values
                     for key, val in parsed_data.items():
                         if isinstance(val, (int, float)):
                             self.data[key] = round(val, 2)
@@ -166,30 +184,26 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
 
                     self.connected = True
                     self.data_ready = True
-
-                    # Notify HA
                     self.async_set_updated_data(self.data)
 
-            except Exception as e:
+            except Exception:
                 self.connected = False
+                _LOGGER.exception("Fehler im Inverter-Stream")
                 await asyncio.sleep(10)
 
 
 class InverterSensor(CoordinatorEntity, SensorEntity):
-    def __init__(
-        self, coordinator, description: SensorEntityDescription, module_index: int = None
-    ):
+    def __init__(self, coordinator, description: SensorEntityDescription, module_index: int = None):
         super().__init__(coordinator)
         self.entity_description = description
         self._module_index = module_index
 
-        # If module_index is provided, it's a module sensor, otherwise it's a single sensor
         if module_index is not None:
             self._attr_name = f"P{module_index + 1} {description.translation_key.replace('_', ' ').title()}"
-            self._attr_unique_id = f"{DEVICE_NAME}_{self.coordinator.sn}_P{module_index}_{description.key}"
+            self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_P{module_index}_{description.key}"
         else:
             self._attr_name = description.translation_key.replace('_', ' ').title()
-            self._attr_unique_id = f"{DEVICE_NAME}_{self.coordinator.sn}_{description.key}"
+            self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_{description.key}"
 
         self._attr_native_unit_of_measurement = description.native_unit_of_measurement
         self._attr_state_class = description.state_class
@@ -199,56 +213,150 @@ class InverterSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         if self._module_index is not None:
-            # Module-specific data retrieval
             return self.coordinator.data.get(f"{self._module_index}_{self.entity_description.key}")
-        else:
-            # Single sensor data retrieval
-            return self.coordinator.data.get(self.entity_description.key)
+        return self.coordinator.data.get(self.entity_description.key)
 
     @property
     def extra_state_attributes(self):
         if self._module_index is not None:
-            return {
-                "serial_number": self.coordinator.data.get(f"{self._module_index}_mi_sn")
-            }
-        else:
-            return {}
+            return {"serial_number": self.coordinator.data.get(f"{self._module_index}_mi_sn")}
+        return {}
 
     @property
     def device_info(self) -> DeviceInfo:
         return DeviceInfo(
-            identifiers={(DOMAIN, f"{DEVICE_NAME}_{self.coordinator.sn}")},  # unique device id
+            identifiers={(DOMAIN, f"{DEVICE_NAME}_{self.coordinator.sn}")},
             name=f"{DEVICE_NAME} {self.coordinator.sn}",
             manufacturer=MANUFACTURER,
         )
 
     @property
     def available(self) -> bool:
-        # Check the connection status
         return self.coordinator.connected and self.coordinator.last_update_success
 
-async def async_setup_entry(hass, entry, async_add_entities):
+
+class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity):
+    """Tages-, Monats- und Jahres-Energie-Sensor mit Persistenz und last_reset"""
+
+    def __init__(self, coordinator, description: SensorEntityDescription):
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_{description.key}"
+        self._attr_has_entity_name = True
+        self._attr_translation_key = description.translation_key
+
+        self._offset: float | None = None
+        self._period_marker: str | None = None
+        self._last_reset: datetime | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if not last_state:
+            return
+
+        try:
+            self._offset = float(last_state.attributes.get("offset", 0))
+            self._period_marker = last_state.attributes.get("period_marker")
+            reset_str = last_state.attributes.get("last_reset")
+            if reset_str:
+                parsed = dt_util.parse_datetime(reset_str)
+                if parsed:
+                    self._last_reset = parsed
+            _LOGGER.debug(
+                "Restored %s: offset=%.2f, marker=%s, last_reset=%s",
+                self.name or self.entity_id,
+                self._offset or 0,
+                self._period_marker or "None",
+                self._last_reset
+            )
+        except Exception as exc:
+            _LOGGER.warning("Restore fehlerhaft für %s: %s", self.name or self.entity_id, exc)
+
+    @property
+    def native_value(self) -> float | None:
+        current_total = self.coordinator.data.get("total_energy")
+        if current_total is None:
+            return None
+
+        now = dt_util.now()
+
+        if self.entity_description.key == "energy_daily":
+            current_marker = now.date().isoformat()
+        elif self.entity_description.key == "energy_monthly":
+            current_marker = now.strftime("%Y-%m")
+        else:  # yearly
+            current_marker = str(now.year)
+
+        if self._period_marker != current_marker:
+            _LOGGER.info(
+                "Periodenwechsel für %s: %s → %s",
+                self.entity_description.key,
+                self._period_marker or "initial",
+                current_marker
+            )
+            self._offset = current_total
+            self._period_marker = current_marker
+            self._last_reset = now
+
+        if self._offset is None:
+            self._offset = current_total
+            self._last_reset = now
+
+        value = max(0.0, current_total - self._offset)
+        return round(value, 2)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        attrs = {
+            "offset": self._offset,
+            "period_marker": self._period_marker,
+        }
+        if self._last_reset is not None:
+            attrs["last_reset"] = dt_util.as_local(self._last_reset).isoformat()
+        return attrs
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{DEVICE_NAME}_{self.coordinator.sn}")},
+            name=f"{DEVICE_NAME} {self.coordinator.sn}",
+            manufacturer=MANUFACTURER,
+        )
+
+    @property
+    def available(self) -> bool:
+        return (
+            self.coordinator.connected
+            and self.coordinator.last_update_success
+            and self.coordinator.data.get("total_energy") is not None
+        )
+
+
+async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
-    # Wait for initial data
     for _ in range(60):
         if coordinator.data_ready:
             break
         await asyncio.sleep(1)
 
     if not coordinator.data_ready:
-        _LOGGER.error("Failed to load inverter data within 60 seconds")
+        _LOGGER.error("Keine Inverter-Daten innerhalb von 60 Sekunden erhalten")
         return
 
     entities = []
 
-    # Add per-panel sensors
+    # Per-panel sensors
     for i in range(coordinator.number_of_panels):
         for description in SENSOR_TYPES:
             entities.append(InverterSensor(coordinator, description, module_index=i))
 
-    # Add single (global) sensors
+    # Global sensors
     for description in SENSOR_TYPES_SINGLE:
-        entities.append(InverterSensor(coordinator, description))
+        if description.key in ["energy_daily", "energy_monthly", "energy_yearly"]:
+            entities.append(InverterPeriodEnergySensor(coordinator, description))
+        else:
+            entities.append(InverterSensor(coordinator, description))
 
-    async_add_entities(entities)
+    async_add_entities(entities, True)
