@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wechselrichter-Überwachung einrichten",
+        "description": "IP-Adresse und Port deines Wechselrichters konfigurieren",
+        "data": {
+          "ip_address": "IP-Adresse des Wechselrichters",
+          "port": "TCP-Port"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "input_voltage": { "name": "Eingangsspannung" },
+      "power": { "name": "Leistung" },
+      "energy": { "name": "Energie" },
+      "temperature": { "name": "Temperatur" },
+      "grid_voltage": { "name": "Netzspannung" },
+      "frequency": { "name": "Frequenz" },
+      "module_serial": { "name": "Modul-Seriennummer" },
+      "firmware_version": { "name": "Firmware-Version" },
+      "total_energy": { "name": "Gesamtenergie" },
+      "total_power": { "name": "Gesamtleistung" },
+      "energy_daily":   { "name": "Tagesproduktion" },
+      "energy_monthly": { "name": "Monatsproduktion" },
+      "energy_yearly":  { "name": "Jahresproduktion" }
+    }
+  }
+}
