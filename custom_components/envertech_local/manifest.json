@@ -1,13 +1,15 @@
 {
   "domain": "envertech_local",
-  "name": "Envertech",
-  "codeowners": ["@Kaiserdragon2"],
-  "config_flow": true,
+  "name": "Envertech Local (Fork)",
+  "version": "1.0.1",
+  "documentation": "https://github.com/jimmybonesde/Envertech_local",
+  "issue_tracker": "https://github.com/jimmybonesde/Envertech_local/issues",
   "dependencies": [],
-  "documentation": "https://github.com/Kaiserdragon2/Envertech_local",
+  "codeowners": ["@jimmybonesde"],
+  "config_flow": true,
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/Kaiserdragon2/Envertech_local/issues",
   "requirements": ["envertech-local==0.0.2"],
-  "version": "1.0.0"
+  "author": "JimmyBonesDE (@jimmybonesde) – Fork & Erweiterungen",
+  "loggers": ["custom_components.envertech_local"]
 }
