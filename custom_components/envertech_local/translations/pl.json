@@ -2,30 +2,45 @@
   "config": {
     "step": {
       "user": {
-        "title": "Ustawienie Monitora Mikrofalownika",
-        "description": "Ustaw IP i Port twojego mikrofalownika",
+        "title": "Konfiguracja Envertech Local",
+        "description": "Wybierz wykryty falownik lub wprowadź dane ręcznie. Znalezione: {discovered_devices}",
         "data": {
-          "ip_address": "Adres IP mikrofalownika",
+          "ip_address": "Falownik",
+          "port": "Port TCP"
+        }
+      },
+      "manual": {
+        "title": "Konfiguracja ręczna",
+        "description": "Wprowadź adres IP, numer seryjny i port TCP falownika Envertech.",
+        "data": {
+          "ip_address": "Adres IP",
+          "unique_id": "Numer seryjny",
           "port": "Port TCP"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Nie można połączyć się z wybranym falownikiem"
+    },
+    "abort": {
+      "already_configured": "Ten falownik jest już skonfigurowany"
     }
   },
   "entity": {
     "sensor": {
-      "input_voltage": { "name": "Napięcie Wejściowe" },
+      "input_voltage": { "name": "Napięcie wejściowe" },
       "power": { "name": "Moc" },
       "energy": { "name": "Energia" },
       "temperature": { "name": "Temperatura" },
-      "grid_voltage": { "name": "Napięcie Sieci" },
+      "grid_voltage": { "name": "Napięcie sieci" },
       "frequency": { "name": "Częstotliwość" },
-      "module_serial": { "name": "Numer Seryjny Modułu" },
-      "firmware_version": { "name": "Wersja Oprogramowania"},
-      "total_energy": { "name": "Całkowita Energia"},
-      "total_power": { "name": "Całkowita Moc"},
-      "energy_daily":   { "name": "Dzienna Energia" },
-      "energy_monthly": { "name": "Miesięczna Energia" },
-      "energy_yearly":  { "name": "Roczna Energia" }
+      "module_serial": { "name": "Numer seryjny modułu" },
+      "firmware_version": { "name": "Wersja oprogramowania" },
+      "total_energy": { "name": "Całkowita energia" },
+      "total_power": { "name": "Całkowita moc" },
+      "energy_daily": { "name": "Energia dzienna" },
+      "energy_monthly": { "name": "Energia miesięczna" },
+      "energy_yearly": { "name": "Energia roczna" }
     }
   }
 }
