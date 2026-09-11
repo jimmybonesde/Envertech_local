@@ -1,14 +1,30 @@
-"""Unit tests for period energy helpers."""
+"""Unit tests for period energy helpers.
 
+Loads period_energy.py directly so Home Assistant is not required.
+"""
+
+from __future__ import annotations
+
+import importlib.util
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.envertech_local.period_energy import (
-    compute_period_energy,
-    period_marker_for,
+_MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "custom_components"
+    / "envertech_local"
+    / "period_energy.py"
 )
+_SPEC = importlib.util.spec_from_file_location("period_energy", _MODULE_PATH)
+assert _SPEC and _SPEC.loader
+_PERIOD = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_PERIOD)
+
+period_marker_for = _PERIOD.period_marker_for
+compute_period_energy = _PERIOD.compute_period_energy
 
 TZ = ZoneInfo("Europe/Berlin")
 
