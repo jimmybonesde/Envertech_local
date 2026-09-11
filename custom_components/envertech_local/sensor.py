@@ -1,4 +1,4 @@
-"""Sensor platform for Envertech Local."""
+"""Sensor platform for Envertech API."""
 
 from __future__ import annotations
 
@@ -377,23 +377,8 @@ class InverterPeriodEnergySensor(
         return self.coordinator.connected and self.coordinator.last_update_success
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up Envertech Local sensors from a config entry."""
-    coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
-
-    if not await coordinator.async_wait_for_data():
-        _LOGGER.error(
-            "No inverter data within %s seconds for %s (%s)",
-            DATA_READY_TIMEOUT,
-            coordinator.sn,
-            coordinator.ip,
-        )
-        return
-
+def _build_entities(coordinator: InverterSocketCoordinator) -> list[SensorEntity]:
+    """Build panel + global sensor entities from current coordinator data."""
     entities: list[SensorEntity] = []
 
     for i in range(coordinator.number_of_panels):
@@ -411,4 +396,31 @@ async def async_setup_entry(
         else:
             entities.append(InverterSensor(coordinator, description))
 
-    async_add_entities(entities)
+    return entities
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Envertech API sensors without blocking platform setup."""
+    coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+    async def _async_add_entities_when_ready() -> None:
+        if not await coordinator.async_wait_for_data():
+            _LOGGER.error(
+                "No inverter data within %s seconds for %s (%s)",
+                DATA_READY_TIMEOUT,
+                coordinator.sn,
+                coordinator.ip,
+            )
+            return
+        async_add_entities(_build_entities(coordinator))
+
+    # Return immediately so HA does not warn about >10s platform setup.
+    entry.async_create_background_task(
+        hass,
+        _async_add_entities_when_ready(),
+        f"{DOMAIN}_add_entities_{entry.entry_id}",
+    )

@@ -1,12 +1,12 @@
-# Envertech Local for Home Assistant
+# Envertech API for Home Assistant
 
-Local TCP monitoring for Envertech microinverters — no cloud account required after setup.
+Local TCP monitoring for Envertech microinverters — by **JimmyBones** (`@jimmybonesde`). No cloud account required after setup.
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub stars](https://img.shields.io/github/stars/jimmybonesde/Envertech_local?style=flat)](https://github.com/jimmybonesde/Envertech_local/stargazers)
+[![GitHub Release](https://img.shields.io/github/v/release/jimmybonesde/Envertech_local?style=flat)](https://github.com/jimmybonesde/Envertech_local/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Maintained fork by [@jimmybonesde](https://github.com/jimmybonesde), based on [Kaiserdragon2/Envertech_local](https://github.com/Kaiserdragon2/Envertech_local).
+Maintained fork by [JimmyBones](https://github.com/jimmybonesde), based on [Kaiserdragon2/Envertech_local](https://github.com/Kaiserdragon2/Envertech_local).
 
 ## Features
 
@@ -25,9 +25,9 @@ Maintained fork by [@jimmybonesde](https://github.com/jimmybonesde), based on [K
 
 1. HACS → Integrations → ⋮ → Custom repositories
 2. Add `https://github.com/jimmybonesde/Envertech_local` as category **Integration**
-3. Search for **Envertech Local** → Install
+3. Search for **Envertech API** → Install
 4. Restart Home Assistant
-5. Settings → Devices & Services → Add Integration → **Envertech Local**
+5. Settings → Devices & Services → Add Integration → **Envertech API**
 
 ### Manual
 
@@ -37,11 +37,11 @@ Maintained fork by [@jimmybonesde](https://github.com/jimmybonesde), based on [K
 
 ## Configuration
 
-1. Settings → Devices & Services → Add Integration → **Envertech Local**
+1. Settings → Devices & Services → Add Integration → **Envertech API**
 2. Pick a discovered inverter, or choose **Manual entry**
 3. Confirm IP and TCP port (default `14889`)
 
-Sensors are created automatically once the first data packet arrives.
+Sensors appear automatically once the first data packet arrives (setup itself does not block).
 
 ## Example sensors
 
@@ -62,7 +62,7 @@ If your model works (or doesn’t), please [open an issue](https://github.com/ji
 ## Credits & license
 
 - Original work: [Kaiserdragon2](https://github.com/Kaiserdragon2/Envertech_local)
-- Fork maintenance & enhancements: [@jimmybonesde](https://github.com/jimmybonesde)
+- Fork maintenance & enhancements: **JimmyBones** ([@jimmybonesde](https://github.com/jimmybonesde))
 - Polish translation: [@vaGpl](https://github.com/vaGpl)
 
 MIT License — see [LICENSE](LICENSE).
