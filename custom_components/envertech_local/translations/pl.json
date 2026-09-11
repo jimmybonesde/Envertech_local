@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Konfiguracja Envertech Local",
+        "title": "Konfiguracja Envertech API",
         "description": "Wybierz wykryty falownik lub wprowadź dane ręcznie. Znalezione: {discovered_devices}",
         "data": {
           "ip_address": "Falownik",
