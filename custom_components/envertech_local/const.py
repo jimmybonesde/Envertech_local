@@ -1,6 +1,6 @@
-"""Constants for the Envertech Local integration."""
+"""Constants for the Envertech API integration."""
 
 DOMAIN = "envertech_local"
-MANUFACTURER = "Envertech"
-DEVICE_NAME = "EVT"
+MANUFACTURER = "JimmyBones"
+DEVICE_NAME = "Envertech API"
 DEFAULT_PORT = 14889
