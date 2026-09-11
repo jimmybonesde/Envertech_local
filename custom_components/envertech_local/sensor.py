@@ -1,32 +1,40 @@
-import logging
+"""Sensor platform for Envertech Local."""
+
+from __future__ import annotations
+
 import asyncio
-from datetime import datetime
-from .const import DOMAIN, MANUFACTURER, DEVICE_NAME
+import logging
+from datetime import datetime, timedelta
+
 from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorStateClass,
-    SensorEntityDescription,
     SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    UnitOfTemperature,
-    UnitOfEnergy,
-    UnitOfPower,
+    EntityCategory,
     UnitOfElectricPotential,
+    UnitOfEnergy,
     UnitOfFrequency,
-)
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    CoordinatorEntity,
+    UnitOfPower,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 from homeassistant.util import dt as dt_util
+
+from .const import DEVICE_NAME, DOMAIN, MANUFACTURER
 
 _LOGGER = logging.getLogger(__name__)
 
-# Per-panel (per-module) sensors
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="input_voltage",
@@ -79,14 +87,15 @@ SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="mi_sn",
         translation_key="module_serial",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
 
-# Global sensors (inkl. Tages-/Monats-/Jahresenergie)
 SENSOR_TYPES_SINGLE: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="firmware_version",
         translation_key="firmware_version",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="total_energy",
@@ -130,92 +139,130 @@ SENSOR_TYPES_SINGLE: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
+PERIOD_KEYS = {"energy_daily", "energy_monthly", "energy_yearly"}
+
 
 class InverterSocketCoordinator(DataUpdateCoordinator):
-    """Coordinator using envertech_local.stream_inverter_data()."""
+    """Coordinator streaming inverter data via envertech_local."""
 
-    def __init__(self, hass: HomeAssistant, ip: str, port: int, sn: str):
-        super().__init__(hass, _LOGGER, name="inverter_stream")
+    def __init__(self, hass: HomeAssistant, ip: str, port: int, sn: str) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"envertech_local_{sn}",
+            update_interval=timedelta(seconds=30),
+        )
         self.ip = ip
         self.port = port
         self.sn = sn
-        self.data = {}
+        self.data: dict = {}
         self.number_of_panels = 0
         self.data_ready = False
         self.connected = False
         self.running = True
-        asyncio.create_task(self._stream_loop())
+        self._stream_task: asyncio.Task | None = hass.async_create_background_task(
+            self._stream_loop(),
+            name=f"envertech_local_stream_{sn}",
+        )
 
-    async def _stream_loop(self):
+    async def _async_update_data(self) -> dict:
+        """Return latest cached stream data for coordinator consumers."""
+        return self.data
+
+    async def async_shutdown(self) -> None:
+        """Stop the background stream."""
+        self.running = False
+        if self._stream_task and not self._stream_task.done():
+            self._stream_task.cancel()
+            try:
+                await self._stream_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _stream_loop(self) -> None:
         from envertech_local import stream_inverter_data
+
         device = {"ip": self.ip, "port": self.port, "serial_number": self.sn}
         while self.running:
             try:
                 async for update in stream_inverter_data(device, interval=5):
+                    if not self.running:
+                        break
                     if isinstance(update, dict) and "error" in update:
                         self.connected = False
                         continue
 
-                    parsed_data = update
-
-                    # Panels dynamisch zählen, flexibel für 0_, 1_, P1_, P2_ etc.
-                    panel_ids = set()
-                    for key in parsed_data.keys():
+                    panel_ids: set[str] = set()
+                    for key in update:
                         if "_" in key:
-                            prefix = key.split("_")[0]
+                            prefix = key.split("_", 1)[0]
                             if prefix.isdigit() or prefix.upper().startswith("P"):
                                 panel_ids.add(prefix)
                     self.number_of_panels = len(panel_ids)
 
-                    # Alle Werte speichern
-                    for key, val in parsed_data.items():
-                        self.data[key] = round(val, 2) if isinstance(val, (int, float)) else val
+                    for key, val in update.items():
+                        self.data[key] = (
+                            round(val, 2) if isinstance(val, (int, float)) else val
+                        )
 
                     self.connected = True
                     self.data_ready = True
                     self.async_set_updated_data(self.data)
-
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.connected = False
-                _LOGGER.exception("Fehler im Inverter-Stream")
+                _LOGGER.exception("Inverter stream error for %s", self.sn)
                 await asyncio.sleep(10)
 
 
-class InverterSensor(CoordinatorEntity, SensorEntity):
-    """Sensor für einzelne Panels oder globale Werte"""
+class InverterSensor(CoordinatorEntity[InverterSocketCoordinator], SensorEntity):
+    """Sensor for per-panel or global inverter values."""
 
-    def __init__(self, coordinator, description: SensorEntityDescription, module_index: int = None):
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: InverterSocketCoordinator,
+        description: SensorEntityDescription,
+        module_index: int | None = None,
+    ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
         self._module_index = module_index
+        self._attr_translation_key = description.translation_key
 
         if module_index is not None:
+            self._attr_translation_placeholders = {"panel": str(module_index + 1)}
+            self._attr_unique_id = (
+                f"{DEVICE_NAME}_{coordinator.sn}_P{module_index}_{description.key}"
+            )
+            # Keep readable name until HA resolves panel placeholders in all UIs
             self._attr_name = f"P{module_index + 1} {description.translation_key.replace('_', ' ').title()}"
-            self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_P{module_index}_{description.key}"
+            self._attr_has_entity_name = False
         else:
-            self._attr_name = description.translation_key.replace('_', ' ').title()
             self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_{description.key}"
-
-        self._attr_native_unit_of_measurement = description.native_unit_of_measurement
-        self._attr_state_class = description.state_class
-        self._attr_device_class = description.device_class
-        self._attr_entity_category = description.entity_category
 
     @property
     def native_value(self):
         if self._module_index is not None:
-            # Versuche zuerst mit "0_key", "1_key" etc., fallback auf "P1_key"
             key_numeric = f"{self._module_index}_{self.entity_description.key}"
             key_p = f"P{self._module_index + 1}_{self.entity_description.key}"
-            return self.coordinator.data.get(key_numeric, self.coordinator.data.get(key_p))
+            return self.coordinator.data.get(
+                key_numeric, self.coordinator.data.get(key_p)
+            )
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict:
         if self._module_index is not None:
             key_numeric = f"{self._module_index}_mi_sn"
             key_p = f"P{self._module_index + 1}_mi_sn"
-            return {"serial_number": self.coordinator.data.get(key_numeric, self.coordinator.data.get(key_p))}
+            return {
+                "serial_number": self.coordinator.data.get(
+                    key_numeric, self.coordinator.data.get(key_p)
+                )
+            }
         return {}
 
     @property
@@ -224,6 +271,8 @@ class InverterSensor(CoordinatorEntity, SensorEntity):
             identifiers={(DOMAIN, f"{DEVICE_NAME}_{self.coordinator.sn}")},
             name=f"{DEVICE_NAME} {self.coordinator.sn}",
             manufacturer=MANUFACTURER,
+            model="Microinverter",
+            sw_version=self.coordinator.data.get("firmware_version"),
         )
 
     @property
@@ -231,16 +280,22 @@ class InverterSensor(CoordinatorEntity, SensorEntity):
         return self.coordinator.connected and self.coordinator.last_update_success
 
 
-class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity):
-    """Berechnet Tages-, Monats- und Jahresenergie auf Basis von total_energy mit Persistenz"""
+class InverterPeriodEnergySensor(
+    CoordinatorEntity[InverterSocketCoordinator], SensorEntity, RestoreEntity
+):
+    """Daily / monthly / yearly energy derived from total_energy."""
 
-    def __init__(self, coordinator, description: SensorEntityDescription):
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: InverterSocketCoordinator,
+        description: SensorEntityDescription,
+    ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_{description.key}"
-        self._attr_has_entity_name = True
         self._attr_translation_key = description.translation_key
-
         self._offset: float | None = None
         self._period_marker: str | None = None
         self._last_reset: datetime | None = None
@@ -248,24 +303,18 @@ class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity)
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
-        if last_state:
-            try:
-                self._offset = float(last_state.attributes.get("offset", 0))
-                self._period_marker = last_state.attributes.get("period_marker")
-                reset_str = last_state.attributes.get("last_reset")
-                if reset_str:
-                    parsed = dt_util.parse_datetime(reset_str)
-                    if parsed:
-                        self._last_reset = parsed
-                _LOGGER.debug(
-                    "Restored %s: offset=%.2f, marker=%s, last_reset=%s",
-                    self.name or self.entity_id,
-                    self._offset or 0,
-                    self._period_marker or "None",
-                    self._last_reset,
-                )
-            except Exception as exc:
-                _LOGGER.warning("Restore fehlerhaft für %s: %s", self.name or self.entity_id, exc)
+        if not last_state:
+            return
+        try:
+            self._offset = float(last_state.attributes.get("offset", 0))
+            self._period_marker = last_state.attributes.get("period_marker")
+            reset_str = last_state.attributes.get("last_reset")
+            if reset_str:
+                parsed = dt_util.parse_datetime(reset_str)
+                if parsed:
+                    self._last_reset = parsed
+        except (TypeError, ValueError) as exc:
+            _LOGGER.warning("Failed to restore %s: %s", self.entity_id, exc)
 
     @property
     def native_value(self) -> float | None:
@@ -282,25 +331,19 @@ class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity)
             current_marker = str(now.year)
 
         if self._period_marker != current_marker:
-            _LOGGER.info(
-                "Neuer Zeitraum für %s: %s → %s",
-                self.entity_description.key,
-                self._period_marker or "initial",
-                current_marker
-            )
-            self._offset = current_total
+            self._offset = float(current_total)
             self._period_marker = current_marker
             self._last_reset = now
 
         if self._offset is None:
-            self._offset = current_total
+            self._offset = float(current_total)
             self._last_reset = now
 
-        return round(max(0.0, current_total - self._offset), 2)
+        return round(max(0.0, float(current_total) - self._offset), 2)
 
     @property
     def extra_state_attributes(self) -> dict:
-        attrs = {
+        attrs: dict = {
             "offset": self._offset,
             "period_marker": self._period_marker,
         }
@@ -314,6 +357,8 @@ class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity)
             identifiers={(DOMAIN, f"{DEVICE_NAME}_{self.coordinator.sn}")},
             name=f"{DEVICE_NAME} {self.coordinator.sn}",
             manufacturer=MANUFACTURER,
+            model="Microinverter",
+            sw_version=self.coordinator.data.get("firmware_version"),
         )
 
     @property
@@ -321,35 +366,40 @@ class InverterPeriodEnergySensor(CoordinatorEntity, SensorEntity, RestoreEntity)
         return self.coordinator.connected and self.coordinator.last_update_success
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Envertech Local sensors from a config entry."""
+    coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    # Warten auf erste gültige Daten
     for _ in range(60):
         if coordinator.data_ready:
             break
         await asyncio.sleep(1)
 
     if not coordinator.data_ready:
-        _LOGGER.error("Keine Inverter-Daten innerhalb von 60 Sekunden erhalten")
+        _LOGGER.error(
+            "No inverter data within 60 seconds for %s (%s)",
+            coordinator.sn,
+            coordinator.ip,
+        )
         return
 
-    entities = []
+    entities: list[SensorEntity] = []
 
-    # Per-Panel-Sensoren
     for i in range(coordinator.number_of_panels):
         for description in SENSOR_TYPES:
-            # Prüfen, ob Key existiert, entweder "0_key" oder "P1_key"
             key_numeric = f"{i}_{description.key}"
             key_p = f"P{i + 1}_{description.key}"
             if key_numeric in coordinator.data or key_p in coordinator.data:
                 entities.append(InverterSensor(coordinator, description, module_index=i))
 
-    # Globale Sensoren
     for description in SENSOR_TYPES_SINGLE:
-        if description.key in ["energy_daily", "energy_monthly", "energy_yearly"]:
+        if description.key in PERIOD_KEYS:
             entities.append(InverterPeriodEnergySensor(coordinator, description))
         else:
             entities.append(InverterSensor(coordinator, description))
 
-    async_add_entities(entities, True)
+    async_add_entities(entities)

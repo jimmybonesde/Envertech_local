@@ -2,13 +2,28 @@
   "config": {
     "step": {
       "user": {
-        "title": "Wechselrichter-Überwachung einrichten",
-        "description": "IP-Adresse und Port deines Wechselrichters konfigurieren",
+        "title": "Envertech Local einrichten",
+        "description": "Entdeckten Wechselrichter wählen oder manuell eintragen. Gefunden: {discovered_devices}",
         "data": {
-          "ip_address": "IP-Adresse des Wechselrichters",
+          "ip_address": "Wechselrichter",
+          "port": "TCP-Port"
+        }
+      },
+      "manual": {
+        "title": "Manuelle Einrichtung",
+        "description": "IP-Adresse, Seriennummer und TCP-Port deines Envertech-Wechselrichters eingeben.",
+        "data": {
+          "ip_address": "IP-Adresse",
+          "unique_id": "Seriennummer",
           "port": "TCP-Port"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum gewählten Wechselrichter fehlgeschlagen"
+    },
+    "abort": {
+      "already_configured": "Dieser Wechselrichter ist bereits eingerichtet"
     }
   },
   "entity": {
@@ -23,9 +38,9 @@
       "firmware_version": { "name": "Firmware-Version" },
       "total_energy": { "name": "Gesamtenergie" },
       "total_power": { "name": "Gesamtleistung" },
-      "energy_daily":   { "name": "Tagesproduktion" },
+      "energy_daily": { "name": "Tagesproduktion" },
       "energy_monthly": { "name": "Monatsproduktion" },
-      "energy_yearly":  { "name": "Jahresproduktion" }
+      "energy_yearly": { "name": "Jahresproduktion" }
     }
   }
 }

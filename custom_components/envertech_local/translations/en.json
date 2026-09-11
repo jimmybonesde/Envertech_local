@@ -2,30 +2,45 @@
   "config": {
     "step": {
       "user": {
-        "title": "Inverter Monitor Setup",
-        "description": "Configure the IP and Port of your inverter",
+        "title": "Envertech Local setup",
+        "description": "Select a discovered inverter or choose manual entry. Discovered: {discovered_devices}",
         "data": {
-          "ip_address": "Inverter IP Address",
-          "port": "TCP Port"
+          "ip_address": "Inverter",
+          "port": "TCP port"
+        }
+      },
+      "manual": {
+        "title": "Manual setup",
+        "description": "Enter IP address, serial number, and TCP port of your Envertech inverter.",
+        "data": {
+          "ip_address": "IP address",
+          "unique_id": "Serial number",
+          "port": "TCP port"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the selected inverter"
+    },
+    "abort": {
+      "already_configured": "This inverter is already configured"
     }
   },
   "entity": {
     "sensor": {
-      "input_voltage": { "name": "Input Voltage" },
+      "input_voltage": { "name": "Input voltage" },
       "power": { "name": "Power" },
       "energy": { "name": "Energy" },
       "temperature": { "name": "Temperature" },
-      "grid_voltage": { "name": "Grid Voltage" },
+      "grid_voltage": { "name": "Grid voltage" },
       "frequency": { "name": "Frequency" },
-      "module_serial": { "name": "Module Serial Number" },
-      "firmware_version": { "name": "Firmware Version"},
-      "total_energy": { "name": "Total Energy"},
-      "total_power": { "name": "Total Power"},
-      "energy_daily":   { "name": "Daily Energy" },
-      "energy_monthly": { "name": "Monthly Energy" },
-      "energy_yearly":  { "name": "Yearly Energy" }
+      "module_serial": { "name": "Module serial number" },
+      "firmware_version": { "name": "Firmware version" },
+      "total_energy": { "name": "Total energy" },
+      "total_power": { "name": "Total power" },
+      "energy_daily": { "name": "Daily energy" },
+      "energy_monthly": { "name": "Monthly energy" },
+      "energy_yearly": { "name": "Yearly energy" }
     }
   }
 }
