@@ -32,8 +32,11 @@ from homeassistant.helpers.update_coordinator import (
 from homeassistant.util import dt as dt_util
 
 from .const import DEVICE_NAME, DOMAIN, MANUFACTURER
+from .period_energy import compute_period_energy
 
 _LOGGER = logging.getLogger(__name__)
+
+DATA_READY_TIMEOUT = 60
 
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
@@ -160,6 +163,7 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
         self.data_ready = False
         self.connected = False
         self.running = True
+        self._data_ready_event = asyncio.Event()
         self._stream_task: asyncio.Task | None = hass.async_create_background_task(
             self._stream_loop(),
             name=f"envertech_local_stream_{sn}",
@@ -168,6 +172,16 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Return latest cached stream data for coordinator consumers."""
         return self.data
+
+    async def async_wait_for_data(self, timeout: float = DATA_READY_TIMEOUT) -> bool:
+        """Wait until the first successful stream packet arrives."""
+        if self.data_ready:
+            return True
+        try:
+            await asyncio.wait_for(self._data_ready_event.wait(), timeout=timeout)
+        except TimeoutError:
+            return False
+        return self.data_ready
 
     async def async_shutdown(self) -> None:
         """Stop the background stream."""
@@ -178,6 +192,10 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
                 await self._stream_task
             except asyncio.CancelledError:
                 pass
+
+    def _mark_data_ready(self) -> None:
+        self.data_ready = True
+        self._data_ready_event.set()
 
     async def _stream_loop(self) -> None:
         from envertech_local import stream_inverter_data
@@ -206,7 +224,7 @@ class InverterSocketCoordinator(DataUpdateCoordinator):
                         )
 
                     self.connected = True
-                    self.data_ready = True
+                    self._mark_data_ready()
                     self.async_set_updated_data(self.data)
             except asyncio.CancelledError:
                 raise
@@ -233,12 +251,13 @@ class InverterSensor(CoordinatorEntity[InverterSocketCoordinator], SensorEntity)
         self._attr_translation_key = description.translation_key
 
         if module_index is not None:
-            self._attr_translation_placeholders = {"panel": str(module_index + 1)}
             self._attr_unique_id = (
                 f"{DEVICE_NAME}_{coordinator.sn}_P{module_index}_{description.key}"
             )
-            # Keep readable name until HA resolves panel placeholders in all UIs
-            self._attr_name = f"P{module_index + 1} {description.translation_key.replace('_', ' ').title()}"
+            self._attr_name = (
+                f"P{module_index + 1} "
+                f"{description.translation_key.replace('_', ' ').title()}"
+            )
             self._attr_has_entity_name = False
         else:
             self._attr_unique_id = f"{DEVICE_NAME}_{coordinator.sn}_{description.key}"
@@ -322,24 +341,16 @@ class InverterPeriodEnergySensor(
         if current_total is None:
             return None
 
-        now = dt_util.now()
-        if self.entity_description.key == "energy_daily":
-            current_marker = now.date().isoformat()
-        elif self.entity_description.key == "energy_monthly":
-            current_marker = now.strftime("%Y-%m")
-        else:
-            current_marker = str(now.year)
-
-        if self._period_marker != current_marker:
-            self._offset = float(current_total)
-            self._period_marker = current_marker
-            self._last_reset = now
-
-        if self._offset is None:
-            self._offset = float(current_total)
-            self._last_reset = now
-
-        return round(max(0.0, float(current_total) - self._offset), 2)
+        value, self._offset, self._period_marker, reset = compute_period_energy(
+            key=self.entity_description.key,
+            current_total=float(current_total),
+            offset=self._offset,
+            marker=self._period_marker,
+            now=dt_util.now(),
+        )
+        if reset is not None:
+            self._last_reset = reset
+        return value
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -374,14 +385,10 @@ async def async_setup_entry(
     """Set up Envertech Local sensors from a config entry."""
     coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    for _ in range(60):
-        if coordinator.data_ready:
-            break
-        await asyncio.sleep(1)
-
-    if not coordinator.data_ready:
+    if not await coordinator.async_wait_for_data():
         _LOGGER.error(
-            "No inverter data within 60 seconds for %s (%s)",
+            "No inverter data within %s seconds for %s (%s)",
+            DATA_READY_TIMEOUT,
             coordinator.sn,
             coordinator.ip,
         )
@@ -394,7 +401,9 @@ async def async_setup_entry(
             key_numeric = f"{i}_{description.key}"
             key_p = f"P{i + 1}_{description.key}"
             if key_numeric in coordinator.data or key_p in coordinator.data:
-                entities.append(InverterSensor(coordinator, description, module_index=i))
+                entities.append(
+                    InverterSensor(coordinator, description, module_index=i)
+                )
 
     for description in SENSOR_TYPES_SINGLE:
         if description.key in PERIOD_KEYS:
