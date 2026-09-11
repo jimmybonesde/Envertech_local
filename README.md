@@ -1,85 +1,75 @@
-# Envertech Local Integration for Home Assistant 🌞🔌
+# Envertech Local for Home Assistant
 
-**Local-only** monitoring for Envertech microinverters – **no cloud, no internet** needed after setup! 🚀
+Local TCP monitoring for Envertech microinverters — no cloud account required after setup.
 
-[![GitHub Release](https://img.shields.io/github/v/release/jimmybonesde/Envertech_local?style=for-the-badge&logo=github&color=green)](https://github.com/jimmybonesde/Envertech_local/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/jimmybonesde/Envertech_local?style=for-the-badge&logo=github&color=yellow)](https://github.com/jimmybonesde/Envertech_local/stargazers)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![GitHub stars](https://img.shields.io/github/stars/jimmybonesde/Envertech_local?style=flat)](https://github.com/jimmybonesde/Envertech_local/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This is a **maintained fork** of the original by [Kaiserdragon2](https://github.com/Kaiserdragon2/Envertech_local) with added daily/monthly/yearly production tracking.
+Maintained fork by [@jimmybonesde](https://github.com/jimmybonesde), based on [Kaiserdragon2/Envertech_local](https://github.com/Kaiserdragon2/Envertech_local).
 
-### 🔥 What This Integration Does
+## Features
 
-Connects **directly** to your Envertech inverter via local TCP – reads real-time data and turns it into beautiful sensors in Home Assistant.  
-No cloud calls, no account, no data leaves your network! 🔒
+- Fully local polling over TCP (no cloud dependency)
+- Per-panel and plant-level sensors (voltage, power, energy, temperature, frequency, …)
+- Daily / monthly / yearly production sensors (derived from lifetime total, restored across restarts)
+- Stable entity IDs for multi-panel setups
+- Translations: English, German, Polish
+- Works with Home Assistant Energy dashboard
 
-### ✨ Features at a Glance
+## Installation
 
-- 🏠 **Fully local** polling (TCP) – zero cloud dependency  
-- ⚡ Real-time per-panel & global values  
-- 📈 **Daily, monthly & yearly production** sensors (perfect for Energy Dashboard)  
-- 🌡️ Voltage, power, energy, temperature, frequency, firmware & serial numbers  
-- 🛡️ Stable entity creation – no more disappearing P1 sensors  
-- 🇬🇧🇩🇪 English & German translations included  
-- ❤️ Optimized for Home Assistant Energy & Lovelace cards
+### HACS (recommended)
 
-### 🚀 Installation
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
 
-#### Via HACS (recommended & fastest)
+1. HACS → Integrations → ⋮ → Custom repositories
+2. Add `https://github.com/jimmybonesde/Envertech_local` as category **Integration**
+3. Search for **Envertech Local** → Install
+4. Restart Home Assistant
+5. Settings → Devices & Services → Add Integration → **Envertech Local**
 
-[![HACS Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
+### Manual
 
-1. Go to **HACS → Integrations** → click the three dots (top right) → **Custom repositories**  
-2. Add this URL:  
-   `https://github.com/jimmybonesde/Envertech_local`  
-3. Category: **Integration** → Add  
-4. Search for **Envertech Local (Fork)** → Install  
-5. **Restart Home Assistant**  
-6. Go to **Settings → Devices & Services → + Add Integration** → search “Envertech”
+1. Copy `custom_components/envertech_local` into your HA `config/custom_components/` folder
+2. Restart Home Assistant
+3. Add the integration via the UI
 
-#### Manual Installation
+## Configuration
 
-1. Download or clone this repo  
-2. Copy the folder `custom_components/envertech_local` into your `config/custom_components/` directory  
-3. Restart Home Assistant  
-4. Add via UI (as above)
+1. Settings → Devices & Services → Add Integration → **Envertech Local**
+2. Pick a discovered inverter, or choose **Manual entry**
+3. Confirm IP and TCP port (default `14889`)
 
-### ⚙️ Configuration
+Sensors are created automatically once the first data packet arrives.
 
-1. **Settings → Devices & Services → + Add Integration**  
-2. Search for **Envertech Local**  
-3. Enter your inverter’s **IP address** (e.g. 192.168.1.100)  
-4. Enter the **TCP port** (default: 8899)  
-5. Submit → all sensors appear automatically 🎉
+## Example sensors
 
-### 📊 Created Sensors (Examples)
+| Sensor | Meaning |
+| --- | --- |
+| `…_p1_power` | Panel 1 instantaneous power (W) |
+| `…_total_energy` | Lifetime energy (kWh) |
+| `…_energy_daily` | Production since local midnight (kWh) |
+| `…_energy_monthly` | Production this month (kWh) |
+| `…_energy_yearly` | Production this year (kWh) |
 
-- `sensor.envertech_[sn]_p1_input_voltage` → Panel 1 input voltage (V)  
-- `sensor.envertech_[sn]_p1_power` → Panel 1 current power (W)  
-- `sensor.envertech_[sn]_total_energy` → Lifetime total energy (kWh)  
-- `sensor.envertech_[sn]_energy_daily`   → **Today's production** (kWh since midnight)  
-- `sensor.envertech_[sn]_energy_monthly` → **This month's production** (kWh)  
-- `sensor.envertech_[sn]_energy_yearly`  → **This year's production** (kWh)
+## Supported devices
 
-### 🛠️ Supported Devices
+Most Envertech microinverters with local TCP (e.g. EMT series). Tested with multi-panel setups.
 
-- Most Envertech microinverters with local TCP (EMT series, etc.)  
-- Tested with 1–4+ panel setups  
-- If your model works or doesn't – please open an issue! 🙏
+If your model works (or doesn’t), please [open an issue](https://github.com/jimmybonesde/Envertech_local/issues).
 
-### 📄 License & Credits
+## Credits & license
 
-Original work Copyright (c) [Year] Kaiserdragon2  
-Fork, enhancements & maintenance Copyright (c) 2026 JimmyBonesDE (@jimmybonesde)
+- Original work: [Kaiserdragon2](https://github.com/Kaiserdragon2/Envertech_local)
+- Fork maintenance & enhancements: [@jimmybonesde](https://github.com/jimmybonesde)
+- Polish translation: [@vaGpl](https://github.com/vaGpl)
 
-Licensed under the **MIT License** – see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE).
 
-### 💬 Contributing
+## Contributing
 
-- Found a bug? → [Open an issue](https://github.com/jimmybonesde/Envertech_local/issues)  
-- Got a feature idea? → Tell me!  
-- Want to help? → Pull requests are very welcome ❤️
+Bug reports and pull requests are welcome:
 
-Made with ☕ & ❤️ in Karlsruhe, Germany
-
-Enjoy your local solar monitoring! 🌞
+- Issues: https://github.com/jimmybonesde/Envertech_local/issues
+- PRs: https://github.com/jimmybonesde/Envertech_local/pulls
