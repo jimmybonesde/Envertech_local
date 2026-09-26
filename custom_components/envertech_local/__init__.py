@@ -50,19 +50,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator: InverterSocketCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
         await coordinator.async_shutdown()
     return unload_ok
-
-
-async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> dict:
-    """Return diagnostics for a config entry."""
-    coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
-    return {
-        "serial_number": coordinator.sn,
-        "ip": coordinator.ip,
-        "port": coordinator.port,
-        "connected": coordinator.connected,
-        "last_error": coordinator.last_error,
-        "number_of_panels": coordinator.number_of_panels,
-        "latest_values": coordinator.data,
-    }
