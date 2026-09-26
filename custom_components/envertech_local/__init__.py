@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
-from .sensor import InverterSocketCoordinator
+from .coordinator import InverterSocketCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,6 +36,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Start streaming only after the platform registered its listener. The
+    # stream reconnects on its own (with backoff) if the inverter is not
+    # reachable yet, e.g. right after a Home Assistant restart.
+    coordinator.async_start(entry)
     return True
 
 
@@ -46,18 +50,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator: InverterSocketCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
         await coordinator.async_shutdown()
     return unload_ok
-
-
-async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> dict:
-    """Return diagnostics for a config entry."""
-    coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
-    return {
-        "serial_number": coordinator.sn,
-        "ip": coordinator.ip,
-        "port": coordinator.port,
-        "connected": coordinator.connected,
-        "number_of_panels": coordinator.number_of_panels,
-        "latest_values": coordinator.data,
-    }

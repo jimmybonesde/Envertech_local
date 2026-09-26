@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -21,22 +20,25 @@ from homeassistant.const import (
     UnitOfPower,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DEVICE_NAME, DOMAIN, MANUFACTURER
+from .coordinator import InverterSocketCoordinator
+from .panels import (
+    panel_sensor_keys,
+    panel_sensor_keys_from_unique_ids,
+    panel_value,
+)
 from .period_energy import compute_period_energy
 
 _LOGGER = logging.getLogger(__name__)
-
-DATA_READY_TIMEOUT = 60
 
 SENSOR_TYPES: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
@@ -145,95 +147,6 @@ SENSOR_TYPES_SINGLE: tuple[SensorEntityDescription, ...] = (
 PERIOD_KEYS = {"energy_daily", "energy_monthly", "energy_yearly"}
 
 
-class InverterSocketCoordinator(DataUpdateCoordinator):
-    """Coordinator streaming inverter data via envertech_local."""
-
-    def __init__(self, hass: HomeAssistant, ip: str, port: int, sn: str) -> None:
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=f"envertech_local_{sn}",
-            update_interval=timedelta(seconds=30),
-        )
-        self.ip = ip
-        self.port = port
-        self.sn = sn
-        self.data: dict = {}
-        self.number_of_panels = 0
-        self.data_ready = False
-        self.connected = False
-        self.running = True
-        self._data_ready_event = asyncio.Event()
-        self._stream_task: asyncio.Task | None = hass.async_create_background_task(
-            self._stream_loop(),
-            name=f"envertech_local_stream_{sn}",
-        )
-
-    async def _async_update_data(self) -> dict:
-        """Return latest cached stream data for coordinator consumers."""
-        return self.data
-
-    async def async_wait_for_data(self, timeout: float = DATA_READY_TIMEOUT) -> bool:
-        """Wait until the first successful stream packet arrives."""
-        if self.data_ready:
-            return True
-        try:
-            await asyncio.wait_for(self._data_ready_event.wait(), timeout=timeout)
-        except TimeoutError:
-            return False
-        return self.data_ready
-
-    async def async_shutdown(self) -> None:
-        """Stop the background stream."""
-        self.running = False
-        if self._stream_task and not self._stream_task.done():
-            self._stream_task.cancel()
-            try:
-                await self._stream_task
-            except asyncio.CancelledError:
-                pass
-
-    def _mark_data_ready(self) -> None:
-        self.data_ready = True
-        self._data_ready_event.set()
-
-    async def _stream_loop(self) -> None:
-        from envertech_local import stream_inverter_data
-
-        device = {"ip": self.ip, "port": self.port, "serial_number": self.sn}
-        while self.running:
-            try:
-                async for update in stream_inverter_data(device, interval=5):
-                    if not self.running:
-                        break
-                    if isinstance(update, dict) and "error" in update:
-                        self.connected = False
-                        continue
-
-                    panel_ids: set[str] = set()
-                    for key in update:
-                        if "_" in key:
-                            prefix = key.split("_", 1)[0]
-                            if prefix.isdigit() or prefix.upper().startswith("P"):
-                                panel_ids.add(prefix)
-                    self.number_of_panels = len(panel_ids)
-
-                    for key, val in update.items():
-                        self.data[key] = (
-                            round(val, 2) if isinstance(val, (int, float)) else val
-                        )
-
-                    self.connected = True
-                    self._mark_data_ready()
-                    self.async_set_updated_data(self.data)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.connected = False
-                _LOGGER.exception("Inverter stream error for %s", self.sn)
-                await asyncio.sleep(10)
-
-
 class InverterSensor(CoordinatorEntity[InverterSocketCoordinator], SensorEntity):
     """Sensor for per-panel or global inverter values."""
 
@@ -265,21 +178,17 @@ class InverterSensor(CoordinatorEntity[InverterSocketCoordinator], SensorEntity)
     @property
     def native_value(self):
         if self._module_index is not None:
-            key_numeric = f"{self._module_index}_{self.entity_description.key}"
-            key_p = f"P{self._module_index + 1}_{self.entity_description.key}"
-            return self.coordinator.data.get(
-                key_numeric, self.coordinator.data.get(key_p)
+            return panel_value(
+                self.coordinator.data, self._module_index, self.entity_description.key
             )
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
     def extra_state_attributes(self) -> dict:
         if self._module_index is not None:
-            key_numeric = f"{self._module_index}_mi_sn"
-            key_p = f"P{self._module_index + 1}_mi_sn"
             return {
-                "serial_number": self.coordinator.data.get(
-                    key_numeric, self.coordinator.data.get(key_p)
+                "serial_number": panel_value(
+                    self.coordinator.data, self._module_index, "mi_sn"
                 )
             }
         return {}
@@ -377,25 +286,18 @@ class InverterPeriodEnergySensor(
         return self.coordinator.connected and self.coordinator.last_update_success
 
 
-def _build_entities(coordinator: InverterSocketCoordinator) -> list[SensorEntity]:
-    """Build panel + global sensor entities from current coordinator data."""
+PANEL_KEYS = tuple(description.key for description in SENSOR_TYPES)
+PANEL_DESCRIPTIONS = {description.key: description for description in SENSOR_TYPES}
+
+
+def _global_entities(coordinator: InverterSocketCoordinator) -> list[SensorEntity]:
+    """Build inverter-wide sensors (created immediately, before any data)."""
     entities: list[SensorEntity] = []
-
-    for i in range(coordinator.number_of_panels):
-        for description in SENSOR_TYPES:
-            key_numeric = f"{i}_{description.key}"
-            key_p = f"P{i + 1}_{description.key}"
-            if key_numeric in coordinator.data or key_p in coordinator.data:
-                entities.append(
-                    InverterSensor(coordinator, description, module_index=i)
-                )
-
     for description in SENSOR_TYPES_SINGLE:
         if description.key in PERIOD_KEYS:
             entities.append(InverterPeriodEnergySensor(coordinator, description))
         else:
             entities.append(InverterSensor(coordinator, description))
-
     return entities
 
 
@@ -404,23 +306,61 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Envertech API sensors without blocking platform setup."""
+    """Set up Envertech API sensors without waiting for the inverter.
+
+    Entities are created right away (unavailable until data arrives):
+    inverter-wide sensors always, per-panel sensors for every panel already
+    known from the entity registry or current data. Panels that show up later
+    in the stream are added dynamically, so a late first packet (inverter
+    offline at night, network not ready at boot, ...) no longer results in
+    missing entities.
+    """
     coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    async def _async_add_entities_when_ready() -> None:
-        if not await coordinator.async_wait_for_data():
-            _LOGGER.error(
-                "No inverter data within %s seconds for %s (%s)",
-                DATA_READY_TIMEOUT,
-                coordinator.sn,
-                coordinator.ip,
-            )
-            return
-        async_add_entities(_build_entities(coordinator))
-
-    # Return immediately so HA does not warn about >10s platform setup.
-    entry.async_create_background_task(
-        hass,
-        _async_add_entities_when_ready(),
-        f"{DOMAIN}_add_entities_{entry.entry_id}",
+    registry = er.async_get(hass)
+    known = panel_sensor_keys_from_unique_ids(
+        (
+            reg_entry.unique_id
+            for reg_entry in er.async_entries_for_config_entry(registry, entry.entry_id)
+        ),
+        f"{DEVICE_NAME}_{coordinator.sn}_",
+        PANEL_KEYS,
     )
+    added: set[tuple[int, str]] = set()
+    firmware: dict[str, str | None] = {"value": None}
+
+    def _panel_entities(keys: set[tuple[int, str]]) -> list[SensorEntity]:
+        new = sorted(keys - added)
+        added.update(new)
+        return [
+            InverterSensor(coordinator, PANEL_DESCRIPTIONS[key], module_index=index)
+            for index, key in new
+        ]
+
+    async_add_entities(
+        _global_entities(coordinator)
+        + _panel_entities(known | panel_sensor_keys(coordinator.data, PANEL_KEYS))
+    )
+
+    @callback
+    def _async_on_coordinator_update() -> None:
+        new_entities = _panel_entities(panel_sensor_keys(coordinator.data, PANEL_KEYS))
+        if new_entities:
+            _LOGGER.debug(
+                "Adding %s new panel sensor(s) for %s",
+                len(new_entities),
+                coordinator.sn,
+            )
+            async_add_entities(new_entities)
+
+        version = coordinator.data.get("firmware_version")
+        if version and version != firmware["value"]:
+            firmware["value"] = version
+            dev_reg = dr.async_get(hass)
+            device = dev_reg.async_get_device(
+                identifiers={(DOMAIN, f"{DEVICE_NAME}_{coordinator.sn}")}
+            )
+            if device and device.sw_version != version:
+                dev_reg.async_update_device(device.id, sw_version=version)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_on_coordinator_update))
