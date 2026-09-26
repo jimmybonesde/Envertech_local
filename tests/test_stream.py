@@ -48,7 +48,17 @@ def _stream(port: int, **kwargs):
 
 
 async def _server(handler):
-    server = await asyncio.start_server(handler, "127.0.0.1", 0)
+    async def wrapped(reader, writer):
+        try:
+            result = handler(reader, writer)
+            if asyncio.iscoroutine(result):
+                await result
+        finally:
+            # Python 3.12's Server.wait_closed() waits for server-side
+            # connections, so always close them when the handler returns.
+            writer.close()
+
+    server = await asyncio.start_server(wrapped, "127.0.0.1", 0)
     return server, server.sockets[0].getsockname()[1]
 
 
