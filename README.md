@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="brand/icon.png" alt="Envertech API icon" width="128">
+  <img src="custom_components/envertech_local/brand/icon.png" alt="Envertech API icon" width="128">
 </p>
 
 <h1 align="center">Envertech API for Home Assistant</h1>
