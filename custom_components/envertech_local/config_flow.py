@@ -11,9 +11,44 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT, CONF_UNIQUE_ID
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DEFAULT_PORT, INTEGRATION_NAME, DOMAIN
+from .const import (
+    CONF_POLL_INTERVAL,
+    DEFAULT_POLL_INTERVAL,
+    DEFAULT_PORT,
+    INTEGRATION_NAME,
+    POLL_INTERVAL_CHOICES,
+    DOMAIN,
+)
+from homeassistant.core import callback
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class InverterMonitorOptionsFlow(config_entries.OptionsFlow):
+    """Options flow for Envertech Local (poll interval)."""
+
+    async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
+        """Handle the options flow."""
+        if user_input is not None:
+            interval = int(user_input[CONF_POLL_INTERVAL])
+            if interval not in POLL_INTERVAL_CHOICES:
+                interval = DEFAULT_POLL_INTERVAL
+            user_input[CONF_POLL_INTERVAL] = interval
+            return self.async_create_entry(title="", data=user_input)
+
+        current = self.config_entry.options.get(
+            CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_POLL_INTERVAL, default=current): vol.In(
+                        POLL_INTERVAL_CHOICES
+                    ),
+                }
+            ),
+        )
 
 
 def _validate_ip(value: str) -> str:
@@ -38,6 +73,14 @@ class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self.discovered_devices: list[dict] = []
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> InverterMonitorOptionsFlow:
+        """Return the options flow handler."""
+        return InverterMonitorOptionsFlow()
 
     async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
         """Handle the initial step with discovery."""
