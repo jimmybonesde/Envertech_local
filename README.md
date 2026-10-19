@@ -84,7 +84,7 @@ After setup, the inverter-wide sensors show up right away. Per-panel sensors are
 
 ## 📊 Sensors
 
-The integration creates **one device per config entry** (`Envertech Local <serial>`, manufacturer *JimmyBones*, model *Microinverter*). The firmware version is shown as the device's software version.
+The integration creates **one device per config entry** (`Envertech API <serial>`, manufacturer *JimmyBones*, model *Microinverter*). The firmware version is shown as the device's software version.
 
 ### ⚡ Per panel / module
 
