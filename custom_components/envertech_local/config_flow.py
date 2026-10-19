@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 
 import voluptuous as vol
@@ -13,6 +14,21 @@ from homeassistant.data_entry_flow import FlowResult
 from .const import DEFAULT_PORT, INTEGRATION_NAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _validate_ip(value: str) -> str:
+    """Validate an IPv4 address; return the normalised string."""
+    try:
+        return str(ipaddress.IPv4Address(value.strip()))
+    except (ipaddress.AddressValueError, ValueError) as exc:
+        raise vol.Invalid("Not a valid IPv4 address") from exc
+
+
+def _validate_port(value: int) -> int:
+    """Validate a TCP port number."""
+    if not 1 <= value <= 65535:
+        raise vol.Invalid("Port must be between 1 and 65535")
+    return value
 
 
 class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -78,7 +94,7 @@ class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_IP_ADDRESS): vol.In(device_choices),
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(CONF_PORT, default=DEFAULT_PORT): _validate_port,
                 }
             ),
             errors=errors,
@@ -112,9 +128,9 @@ class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="manual",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_IP_ADDRESS): str,
+                    vol.Required(CONF_IP_ADDRESS): _validate_ip,
                     vol.Required(CONF_UNIQUE_ID): str,
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(CONF_PORT, default=DEFAULT_PORT): _validate_port,
                 }
             ),
             errors=errors,
