@@ -262,14 +262,17 @@ class InverterPeriodEnergySensor(
         return value
 
     @property
+    def last_reset(self) -> datetime | None:
+        """Native last-reset so dashboards/statistics track the period boundary."""
+        return self._last_reset
+
+    @property
     def extra_state_attributes(self) -> dict:
-        attrs: dict = {
+        # ``last_reset`` is provided natively (see last_reset property).
+        return {
             "offset": self._offset,
             "period_marker": self._period_marker,
         }
-        if self._last_reset is not None:
-            attrs["last_reset"] = dt_util.as_local(self._last_reset).isoformat()
-        return attrs
 
     @property
     def device_info(self) -> DeviceInfo:

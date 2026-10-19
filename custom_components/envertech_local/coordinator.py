@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from .panels import panel_indices
 from .stream import run_with_reconnect, stream_inverter
 
 _LOGGER = logging.getLogger(__name__)
+
+# A panel value that is missing from this many consecutive packets is dropped
+# from the cache so removed modules do not show stale values forever.
+STALE_PACKET_LIMIT = 3
 
 
 class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
@@ -33,7 +38,10 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
         self.number_of_panels = 0
         self.connected = False
         self.last_error: str | None = None
+        self.last_loss: datetime | None = None
+        self.reconnect_count = 0
         self._stream_task: asyncio.Task | None = None
+        self._stale_counters: dict[str, int] = {}
 
     async def _async_update_data(self) -> dict:
         """Return latest cached stream data for coordinator consumers."""
@@ -98,6 +106,13 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
     def _handle_data(self, update: dict) -> None:
         for key, val in update.items():
             self.data[key] = round(val, 2) if isinstance(val, float) else val
+            self._stale_counters[key] = 0
+        # Drop cached values that stopped arriving (removed modules).
+        for key in [k for k, n in self._stale_counters.items() if k not in update]:
+            self._stale_counters[key] += 1
+            if self._stale_counters[key] >= STALE_PACKET_LIMIT:
+                del self._stale_counters[key]
+                self.data.pop(key, None)
         self.number_of_panels = len(panel_indices(self.data))
         self.connected = True
         self.last_error = None
@@ -108,5 +123,7 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
         self.last_error = f"{type(error).__name__}: {error}" if error else None
         if self.connected:
             self.connected = False
+            self.last_loss = dt_util.utcnow()
+            self.reconnect_count += 1
             # Mark entities unavailable instead of showing stale values.
             self.async_update_listeners()

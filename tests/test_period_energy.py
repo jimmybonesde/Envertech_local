@@ -87,11 +87,29 @@ def test_compute_resets_on_new_day() -> None:
     assert last_reset == now
 
 
-def test_compute_never_negative() -> None:
+def test_compute_rolls_back_and_rebases() -> None:
+    # total_energy is the sum of module lifetime energies; it drops when a
+    # module is unplugged. The period value must re-base, not stay at 0.
     now = datetime(2026, 9, 11, 12, 0, tzinfo=TZ)
     value, offset, marker, last_reset = compute_period_energy(
         key="energy_monthly",
         current_total=90.0,
+        offset=100.0,
+        marker="2026-09",
+        now=now,
+    )
+    assert value == 0.0
+    assert offset == 90.0
+    assert marker == "2026-09"
+    assert last_reset == now
+
+
+def test_compute_no_rebase_for_small_variation() -> None:
+    # Floating point / rounding noise below the tolerance must not re-base.
+    now = datetime(2026, 9, 11, 12, 0, tzinfo=TZ)
+    value, offset, marker, last_reset = compute_period_energy(
+        key="energy_monthly",
+        current_total=100.005,
         offset=100.0,
         marker="2026-09",
         now=now,
