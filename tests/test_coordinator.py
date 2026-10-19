@@ -83,6 +83,10 @@ def _make_coordinator() -> object:
     cls = coordinator_mod.InverterSocketCoordinator
     coord = object.__new__(cls)
     # Attributes normally set in __init__:
+    coord.hass = object()
+    coord.ip = "127.0.0.1"
+    coord.port = 14889
+    coord.sn = "12345678"
     coord.data = {}
     coord._stale_counters = {}
     coord.number_of_panels = 0
@@ -90,6 +94,9 @@ def _make_coordinator() -> object:
     coord.last_error = None
     coord.last_loss = None
     coord.reconnect_count = 0
+    coord.poll_interval = 5
+    coord._entry = None
+    coord._stream_task = None
 
     coord.async_set_updated_data = lambda data: data
     coord.async_update_listeners = lambda: None

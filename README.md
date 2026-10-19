@@ -34,7 +34,7 @@ This fork is maintained by [JimmyBones](https://github.com/jimmybonesde). It is 
 
 ## ✨ Features
 
-- 🏠 **100 % local**: a persistent TCP connection to the inverter (default port `14889`), polled every 5 seconds
+- 🏠 **100 % local**: a persistent TCP connection to the inverter (default port `14889`), polled every 5 seconds (adjustable: 5/10/30 s)
 - 🔍 **Automatic discovery** of inverters on your network (UDP broadcast), with a manual setup option as fallback
 - ⚡ **Per-panel live values**: DC input voltage, power, energy, temperature, grid voltage and grid frequency
 - 🏡 **System totals**: total power and lifetime energy
@@ -81,6 +81,16 @@ The integration is set up entirely in the UI through a config flow:
 After setup, the inverter-wide sensors show up right away. Per-panel sensors are added automatically once the first data packet reports the panels. Until data arrives, sensors are `unavailable`.
 
 > 💡 Home Assistant must be able to reach the inverter on TCP port `14889`. Discovery also needs UDP broadcasts to work, which usually means the same subnet or VLAN and `host` networking for Docker installs. Give the inverter a fixed IP address (DHCP reservation) in your router.
+
+### Poll interval (options)
+
+By default the inverter is polled every **5 seconds**. This is configurable per inverter:
+
+1. Go to **Settings → Devices & services → Envertech Local → ⋮ (three dots) → Configure**.
+2. Choose the **Poll interval**: `5 s`, `10 s` or `30 s`.
+3. Save. The stream is restarted immediately with the new interval – no HA restart needed.
+
+A longer interval reduces traffic on the local network, which can be useful when you run several inverters or when the inverter occasionally drops short polls. The default `5 s` gives the freshest values and is recommended for most setups.
 
 ## 📊 Sensors
 

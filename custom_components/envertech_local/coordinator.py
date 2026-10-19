@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from .panels import panel_indices
 from .stream import run_with_reconnect, stream_inverter
+from .const import CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
         self.last_error: str | None = None
         self.last_loss: datetime | None = None
         self.reconnect_count = 0
+        self.poll_interval = DEFAULT_POLL_INTERVAL
+        self._entry: ConfigEntry | None = None
         self._stream_task: asyncio.Task | None = None
         self._stale_counters: dict[str, int] = {}
 
@@ -54,6 +57,10 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
         Using the entry's background task ensures Home Assistant cancels it on
         unload and on shutdown.
         """
+        self._entry = entry
+        self.poll_interval = int(
+            entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
+        )
         if self._stream_task and not self._stream_task.done():
             return
         self._stream_task = entry.async_create_background_task(
@@ -61,6 +68,25 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
             self._async_run(),
             f"envertech_local_stream_{self.sn}",
         )
+
+    @callback
+    def async_set_poll_interval(self, interval: int) -> None:
+        """Apply a new poll interval and restart the stream with it.
+
+        Called from the options flow. Cancels the running stream task and
+        starts a fresh one so the new interval takes effect immediately.
+        """
+        self.poll_interval = int(interval)
+        entry = self._entry
+        task, self._stream_task = self._stream_task, None
+        if task and not task.done():
+            task.cancel()
+        if entry is not None:
+            self._stream_task = entry.async_create_background_task(
+                self.hass,
+                self._async_run(),
+                f"envertech_local_stream_{self.sn}",
+            )
 
     async def async_shutdown(self) -> None:
         """Stop the background stream."""
@@ -92,6 +118,7 @@ class InverterSocketCoordinator(DataUpdateCoordinator[dict]):
             build_request=build_inverter_request,
             build_break=build_inverter_break_command,
             parse=parser.parse_data,
+            interval=self.poll_interval,
         )
 
     async def _async_run(self) -> None:

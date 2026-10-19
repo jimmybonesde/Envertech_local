@@ -9,7 +9,7 @@ from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT, CONF_UNIQUE_ID, Plat
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN
+from .const import CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL, DOMAIN
 from .coordinator import InverterSocketCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,7 +40,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # stream reconnects on its own (with backoff) if the inverter is not
     # reachable yet, e.g. right after a Home Assistant restart.
     coordinator.async_start(entry)
+    entry.add_update_listener(_async_update_listener)
     return True
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Apply options changes (poll interval) without a full re-setup.
+
+    The options flow triggers this listener when the entry's options change.
+    Restart the stream with the new poll interval so it takes effect live.
+    """
+    coordinator: InverterSocketCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator.async_set_poll_interval(
+        entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)
+    )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
