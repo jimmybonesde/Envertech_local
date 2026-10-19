@@ -42,13 +42,13 @@ def test_panel_sensor_keys_only_existing_values() -> None:
 
 
 def test_panel_sensor_keys_from_unique_ids() -> None:
-    prefix = "Envertech API_12345678_"
+    prefix = "Envertech Local_12345678_"
     unique_ids = [
-        "Envertech API_12345678_P0_input_voltage",
-        "Envertech API_12345678_P1_mi_sn",
-        "Envertech API_12345678_total_energy",
-        "Envertech API_87654321_P0_power",
-        "Envertech API_12345678_P2_unknown_key",
+        "Envertech Local_12345678_P0_input_voltage",
+        "Envertech Local_12345678_P1_mi_sn",
+        "Envertech Local_12345678_total_energy",
+        "Envertech Local_87654321_P0_power",
+        "Envertech Local_12345678_P2_unknown_key",
         None,
     ]
     assert panels.panel_sensor_keys_from_unique_ids(unique_ids, prefix, KEYS) == {

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="custom_components/envertech_local/brand/icon.png" alt="Envertech API icon" width="128">
+  <img src="custom_components/envertech_local/brand/icon.png" alt="Envertech Local icon" width="128">
 </p>
 
-<h1 align="center">Envertech API for Home Assistant</h1>
+<h1 align="center">Envertech Local for Home Assistant</h1>
 
 <p align="center">
   <strong>Local, cloud-free monitoring of Envertech micro-inverters via their TCP interface.</strong>
@@ -26,7 +26,7 @@
   <a href="#%EF%B8%8F-troubleshooting">Troubleshooting</a>
 </p>
 
-> **Envertech API** (integration domain `envertech_local`) reads live data straight from your Envertech inverter/gateway on your local network. You don't need a cloud account, and nothing leaves your LAN.
+> **Envertech Local** (integration domain `envertech_local`) reads live data straight from your Envertech inverter/gateway on your local network. You don't need a cloud account, and nothing leaves your LAN.
 
 This fork is maintained by [JimmyBones](https://github.com/jimmybonesde). It is based on [Kaiserdragon2/Envertech_local](https://github.com/Kaiserdragon2/Envertech_local).
 
@@ -51,7 +51,7 @@ The integration is part of the official [HACS default catalog](https://github.co
 
 [![Open HACS and install this integration.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
 
-1. In Home Assistant, open **HACS** and search for **Envertech API**.
+1. In Home Assistant, open **HACS** and search for **Envertech Local**.
 2. Click **Download** and wait for the installation to finish.
 3. **Restart** Home Assistant.
 
@@ -69,7 +69,7 @@ The integration is set up entirely in the UI through a config flow:
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=envertech_local)
 
-1. Go to **Settings → Devices & services → Add integration** and choose **Envertech API**.
+1. Go to **Settings → Devices & services → Add integration** and choose **Envertech Local**.
 2. **Discovery:** the integration spends about 5 seconds searching your network for inverters. It sends UDP broadcasts on ports `48889` (Ethernet/LOCALCON) and `48899` (Wi-Fi). Every inverter it finds is listed as `IP — serial number`, except those already set up.
 3. Pick your inverter and check the **TCP port** (default `14889`).
 4. If nothing is found, choose **Manual entry** and enter:
@@ -84,7 +84,7 @@ After setup, the inverter-wide sensors show up right away. Per-panel sensors are
 
 ## 📊 Sensors
 
-The integration creates **one device per config entry** (`Envertech API <serial>`, manufacturer *JimmyBones*, model *Microinverter*). The firmware version is shown as the device's software version.
+The integration creates **one device per config entry** (`Envertech Local <serial>`, manufacturer *JimmyBones*, model *Microinverter*). The firmware version is shown as the device's software version.
 
 ### ⚡ Per panel / module
 
@@ -179,7 +179,7 @@ logger:
     envertech_local: debug
 ```
 
-You can also use **Settings → Devices & services → Envertech API → ⋮ → Enable debug logging**, reproduce the problem and then disable it again to download the log.
+You can also use **Settings → Devices & services → Envertech Local → ⋮ → Enable debug logging**, reproduce the problem and then disable it again to download the log.
 </details>
 
 ## 🔧 Supported devices

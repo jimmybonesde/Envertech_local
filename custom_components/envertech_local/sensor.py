@@ -1,4 +1,4 @@
-"""Sensor platform for Envertech API."""
+"""Sensor platform for Envertech Local."""
 
 from __future__ import annotations
 
@@ -306,7 +306,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Envertech API sensors without waiting for the inverter.
+    """Set up Envertech Local sensors without waiting for the inverter.
 
     Entities are created right away (unavailable until data arrives):
     inverter-wide sensors always, per-panel sensors for every panel already

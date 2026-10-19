@@ -1,4 +1,4 @@
-"""Diagnostics support for Envertech API."""
+"""Diagnostics support for Envertech Local."""
 
 from __future__ import annotations
 
