@@ -47,14 +47,13 @@ This fork is maintained by [JimmyBones](https://github.com/jimmybonesde). It is 
 
 ### HACS (recommended)
 
-> ℹ️ The integration is not in the HACS default list yet. The inclusion request is pending in [hacs/default#10850](https://github.com/hacs/default/pull/10850). Until it is merged, add it as a **custom repository**:
+The integration is part of the official [HACS default catalog](https://github.com/hacs/default).
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
+[![Open HACS and install this integration.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jimmybonesde&repository=Envertech_local&category=integration)
 
-1. In Home Assistant, open **HACS → ⋮ (top right) → Custom repositories**.
-2. Add `https://github.com/jimmybonesde/Envertech_local` with type **Integration**.
-3. Search for **Envertech API** in HACS and click **Download**.
-4. **Restart** Home Assistant.
+1. In Home Assistant, open **HACS** and search for **Envertech API**.
+2. Click **Download** and wait for the installation to finish.
+3. **Restart** Home Assistant.
 
 ### Manual
 
