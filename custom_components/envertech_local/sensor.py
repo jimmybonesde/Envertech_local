@@ -362,7 +362,8 @@ async def async_setup_entry(
             firmware["value"] = version
             dev_reg = dr.async_get(hass)
             device = dev_reg.async_get_device_by_identifier(
-                (DOMAIN, f"{DEVICE_NAME}_{coordinator.sn}")
+                (DOMAIN, f"{DEVICE_NAME}_{coordinator.sn}"),
+                entry.entry_id,
             )
             if device and device.sw_version != version:
                 dev_reg.async_update_device(device.id, sw_version=version)
