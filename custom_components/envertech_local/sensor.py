@@ -262,17 +262,18 @@ class InverterPeriodEnergySensor(
         return value
 
     @property
-    def last_reset(self) -> datetime | None:
-        """Native last-reset so dashboards/statistics track the period boundary."""
-        return self._last_reset
-
-    @property
     def extra_state_attributes(self) -> dict:
-        # ``last_reset`` is provided natively (see last_reset property).
-        return {
+        # ``last_reset`` is a plain attribute (not the native property) because
+        # these sensors use state_class=TOTAL_INCREASING; the native
+        # last_reset property is only valid for state_class=TOTAL and would
+        # raise a ValueError on every state write.
+        attrs = {
             "offset": self._offset,
             "period_marker": self._period_marker,
         }
+        if self._last_reset is not None:
+            attrs["last_reset"] = dt_util.as_local(self._last_reset).isoformat()
+        return attrs
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -360,8 +361,8 @@ async def async_setup_entry(
         if version and version != firmware["value"]:
             firmware["value"] = version
             dev_reg = dr.async_get(hass)
-            device = dev_reg.async_get_device(
-                identifiers={(DOMAIN, f"{DEVICE_NAME}_{coordinator.sn}")}
+            device = dev_reg.async_get_device_by_identifier(
+                (DOMAIN, f"{DEVICE_NAME}_{coordinator.sn}")
             )
             if device and device.sw_version != version:
                 dev_reg.async_update_device(device.id, sw_version=version)
